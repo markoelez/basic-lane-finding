@@ -7,11 +7,13 @@ from pygame.locals import DOUBLEBUF
 
 
 class Display:
-    def __init__(self, W, H, pygame=True):
-        if pygame:
+    def __init__(self, W, H, use_pygame=False):
+        if use_pygame:
             pygame.init()
             self.screen = pygame.display.set_mode((W, H), DOUBLEBUF)
             self.surface = pygame.Surface(self.screen.get_size()).convert()
+            self.clock = pygame.time.Clock()
+            pygame.display.flip()
 
     def imshow(self, img, window="image"):
         img = self.cvtgray(img)
@@ -19,7 +21,8 @@ class Display:
         cv2.waitKey(0)
 
     def blit(self, img):
-        for _  in pygame.event.get():
+        self.clock.tick(30)
+        for _ in pygame.event.get():
             pass
 
         img = self.cvtgray(img)
@@ -37,3 +40,4 @@ class Display:
         if len(img.shape) == 2:
             return np.stack((img,) * 3, axis=-1)
         return img
+

@@ -6,11 +6,9 @@ import numpy as np
 from line import Line
 
 
-INT_MIN = -1e8
-
 class ImageProcessor:
 
-    def mask_ros(self, img, vertices):
+    def mask_roi(self, img, vertices):
         mask = np.zeros_like(img)
 
         if len(img.shape) > 2:
@@ -19,13 +17,9 @@ class ImageProcessor:
             bg = 255
 
         cv2.fillPoly(mask, vertices, bg)
+        return cv2.bitwise_and(img, mask)
 
-        masked = cv2.bitwise_and(img, mask)
-
-        return masked
-
-    def hough_lines(self, img, rho=2, theta=np.pi/180, threshold=1, min_line_len=15, max_line_gap=5):
-        return cv2.HoughLinesP(img, 1, np.pi/180, 30, maxLineGap=200)
+    def hough_lines(self, img, rho=1, theta=np.pi/180, threshold=10, min_line_len=20, max_line_gap=100):
         return cv2.HoughLinesP(img, rho,
                 theta,
                 threshold,
@@ -49,24 +43,59 @@ class ImageProcessor:
         return self.filter_lines(lines, img.shape)
 
     def filter_lines(self, lines, shape):
+        # separate by gradient
         pos = [l for l in lines if l.slope > 0]
         neg = [l for l in lines if l.slope < 0]
 
-        lb = np.median([l.bias for l in neg]).astype(int)
-        ls = np.median([l.slope for l in neg])
-        x1, y1 = 0, lb 
-        x2, y2 = -np.int32(np.round(lb / ls)), 0
-        if y1 <= INT_MIN: y1 = 0
-        if x2 <= INT_MIN: x2 = 0
-        ll = Line(x1, y1, x2, y2)
+        # remove outliers
+        pos = [l for l in pos if l.slope > 0.3]
+        neg = [l for l in neg if l.slope < -0.3]
 
-        rb = np.median([l.bias for l in pos]).astype(int)
-        rs = np.median([l.slope for l in pos])
-        x1, y1 = 0, rb 
-        x2, y2 = np.int32(np.round((shape[0] - rb) / rs)), shape[0]
-        if x2 <= INT_MIN: x2 = 0
-        if y1 <= INT_MIN: y1 = 0
-        rl = Line(x1, y1, x2, y2)
+        # get gradients
+        rslopes = [l.slope for l in pos]
+        lslopes = [l.slope for l in neg]
 
-        return (ll, rl)
+        # get biases
+        rbiases = [l.bias for l in pos]
+        lbiases = [l.bias for l in neg]
+
+        # get average m and b
+        rslope = np.mean(rslopes[-30:])
+        rbias = np.mean(rbiases[-30:])
+        lslope = np.mean(lslopes[-30:])
+        lbias = np.mean(lbiases[-30:])
+
+        # get points
+        lx1 = int((0.65 * shape[0] - lbias)/lslope)
+        ly1 = int(0.65 * shape[0])
+        lx2 = int((shape[0] - lbias)/lslope)
+        ly2 = int(shape[0])
+        
+        rx1 = int((0.65 * shape[0] - rbias)/rslope)
+        ry1 = int(0.65 * shape[0])
+        rx2 = int((shape[0] - rbias)/rslope)
+        ry2 = int(shape[0])
+
+        ll = Line(lx1, ly1, lx2, ly2)
+        rl = Line(rx1, ry1, rx2, ry2)
+
+        pts = np.array([[lx1, ly1], [lx2, ly2], [rx2, ry2], [rx1, ry1]])
+
+        return (ll, rl, pts)
+
+    def draw_poly(self, img, pts, color=(0, 0, 255)):
+        pts = pts.reshape((-1,1,2))
+        return cv2.fillPoly(img, [pts], (0, 0, 255))      
+
+    def add_channel(self, img):
+        # if grayscale, add channels
+        if len(img.shape) == 2:
+            return np.stack((img,) * 3, axis=-1)
+        return img
+       
+    def weighted_img(self, img, overlay, a=0.8, b=1., l=0.):
+        overlay = np.uint8(overlay)
+        if len(overlay.shape) == 2:
+            img = np.dstack((img, np.zeros_like(overlay), np.zeros_like(overlay)))
+        return cv2.addWeighted(img, a, overlay, b, l)
     
