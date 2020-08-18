@@ -65,11 +65,14 @@ class ImageProcessor:
         lslope = np.mean(lslopes[-30:])
         lbias = np.mean(lbiases[-30:])
 
+        # fix for inf values
+        rbias = rbias if rbias != float("-inf") else -1e6
+
         # get points
         lx1 = int((0.65 * shape[0] - lbias)/lslope)
         ly1 = int(0.65 * shape[0])
         lx2 = int((shape[0] - lbias)/lslope)
-        ly2 = int(shape[0])
+        ly2 = int((shape[0]))
         
         rx1 = int((0.65 * shape[0] - rbias)/rslope)
         ry1 = int(0.65 * shape[0])
@@ -84,8 +87,8 @@ class ImageProcessor:
         return (ll, rl, pts)
 
     def draw_poly(self, img, pts, color=(0, 0, 255)):
-        pts = pts.reshape((-1,1,2))
-        return cv2.fillPoly(img, [pts], (0, 0, 255))      
+        pts = pts.reshape((-1, 1, 2))
+        return cv2.fillPoly(img, [pts], color)
 
     def add_channel(self, img):
         # if grayscale, add channels
@@ -93,9 +96,6 @@ class ImageProcessor:
             return np.stack((img,) * 3, axis=-1)
         return img
        
-    def weighted_img(self, img, overlay, a=0.8, b=1., l=0.):
-        overlay = np.uint8(overlay)
-        if len(overlay.shape) == 2:
-            img = np.dstack((img, np.zeros_like(overlay), np.zeros_like(overlay)))
+    def overlay(self, img, overlay, a=0.8, b=0.1, l=0):
         return cv2.addWeighted(img, a, overlay, b, l)
     

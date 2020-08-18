@@ -1,5 +1,6 @@
 #!usr/bin/env python3
 
+import sys
 import cv2
 import pygame
 import numpy as np
@@ -22,8 +23,11 @@ class Display:
 
     def blit(self, img):
         self.clock.tick(30)
-        for _ in pygame.event.get():
-            pass
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT:
+                sys.exit(0)
+            if e.type == pygame.KEYDOWN:
+                sys.exit(0)
 
         img = self.cvtgray(img)
 

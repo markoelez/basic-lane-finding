@@ -22,15 +22,16 @@ def process_frame(frame, ROS):
 
     overlay = np.zeros_like(frame)
 
-    left.clip_to_point(x, y)
-    right.clip_to_point(x, y)
+    #left.clip_to_point(x, y)
+    #right.clip_to_point(x, y)
     
-    # draw lanes and fill poly
-    overlay = processor.draw_poly(overlay, pts)
-    left.draw(overlay, color=(0, 255, 0))
-    right.draw(overlay, color=(0, 255, 0))
-
-    f = processor.weighted_img(frame, overlay)
+    # draw lane poly
+    overlay = processor.draw_poly(overlay, pts, color=(137, 180, 154))
+    f = processor.overlay(frame, overlay, a=1, b=0.4)
+    
+    # draw lanes
+    left.draw(f, color=(0, 255, 0))
+    right.draw(f, color=(0, 255, 0))
 
     return f 
 
@@ -45,15 +46,20 @@ def handle_img(img_path):
 
     display = Display(W, H)
 
+    cv2.imwrite("out.jpg", frame)
+
     display.imshow(frame)
 
 def handle_vid(vid_path):
-    
+
     cap = cv2.VideoCapture(vid_path)
 
     W = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     H = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     ROS = np.array([[(50, H), (450, 310), (500, 310), (W - 50, H)]], dtype=np.int32)
+
+    fourcc = cv2.VideoWriter_fourcc(*'MP4V')
+    out = cv2.VideoWriter('output.mp4', fourcc, 20.0, (W, H))
 
     display = Display(W, H, use_pygame=True)
 
@@ -65,6 +71,8 @@ def handle_vid(vid_path):
 
         frame = process_frame(frame, ROS)
 
+        out.write(frame)
+
         display.blit(frame)
 
 
@@ -73,4 +81,5 @@ if __name__ == "__main__":
     #handle_img("data/img/solidWhiteCurve.jpg")
 
     handle_vid("data/vid/solidWhiteRight.mp4")
+    #handle_vid("data/vid/highway.mp4")
 
